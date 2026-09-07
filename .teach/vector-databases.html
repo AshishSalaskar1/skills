@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A deep engineering guide to vector databases, ANN search, HNSW, IVF, quantization, and RAG retrieval.">
+  <title>Vector Databases: From Embeddings to ANN Indexes</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas: #f4f1e8;
+      --surface: #fffdf7;
+      --surface-2: #e9eee8;
+      --text: #17201d;
+      --muted: #56615c;
+      --border: #b8c2bc;
+      --accent: #006b5b;
+      --accent-2: #b5402c;
+      --accent-soft: #d9eee8;
+      --code-bg: #17201d;
+      --code-text: #eef5ee;
+      --table-head: #dfe7e1;
+      --focus: #d34f2f;
+      --line: #5b746a;
+      --node: #fffdf7;
+      --node-hot: #e76f51;
+      --node-cool: #2a9d8f;
+      --shadow: 0 12px 32px rgb(32 45 39 / 10%);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --canvas: #121815;
+        --surface: #1b2420;
+        --surface-2: #24322c;
+        --text: #eef4ef;
+        --muted: #b7c4bc;
+        --border: #465950;
+        --accent: #64d2bd;
+        --accent-2: #ff9b7f;
+        --accent-soft: #193f37;
+        --code-bg: #0b100e;
+        --code-text: #e3f2e9;
+        --table-head: #283a32;
+        --focus: #ffaf87;
+        --line: #8ca99c;
+        --node: #1b2420;
+        --node-hot: #ff8d70;
+        --node-cool: #5ed0bb;
+        --shadow: 0 12px 32px rgb(0 0 0 / 28%);
+      }
+    }
+    :root[data-theme="light"] { color-scheme: light; }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --canvas: #121815; --surface: #1b2420; --surface-2: #24322c;
+      --text: #eef4ef; --muted: #b7c4bc; --border: #465950;
+      --accent: #64d2bd; --accent-2: #ff9b7f; --accent-soft: #193f37;
+      --code-bg: #0b100e; --code-text: #e3f2e9; --table-head: #283a32;
+      --focus: #ffaf87; --line: #8ca99c; --node: #1b2420;
+      --node-hot: #ff8d70; --node-cool: #5ed0bb; --shadow: 0 12px 32px rgb(0 0 0 / 28%);
+    }
+    :root[data-theme="light"] {
+      --canvas: #f4f1e8; --surface: #fffdf7; --surface-2: #e9eee8;
+      --text: #17201d; --muted: #56615c; --border: #b8c2bc;
+      --accent: #006b5b; --accent-2: #b5402c; --accent-soft: #d9eee8;
+      --code-bg: #17201d; --code-text: #eef5ee; --table-head: #dfe7e1;
+      --focus: #d34f2f; --line: #5b746a; --node: #fffdf7;
+      --node-hot: #e76f51; --node-cool: #2a9d8f; --shadow: 0 12px 32px rgb(32 45 39 / 10%);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(90deg, transparent 49px, rgb(80 110 96 / 7%) 50px, transparent 51px),
+        linear-gradient(0deg, transparent 49px, rgb(80 110 96 / 7%) 50px, transparent 51px),
+        var(--canvas);
+      background-size: 50px 50px;
+      color: var(--text);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 18px;
+      line-height: 1.68;
+    }
+    a { color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+    a:hover { color: var(--accent-2); }
+    button, code, pre, .eyebrow, .metric, table { font-family: "DejaVu Sans Mono", Consolas, monospace; }
+    :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+    header { background: var(--surface); border-bottom: 1px solid var(--border); }
+    .masthead { max-width: 1180px; margin: 0 auto; padding: 3.2rem 1.5rem 2.4rem; position: relative; }
+    .eyebrow { color: var(--accent-2); font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    h1, h2, h3 { line-height: 1.14; letter-spacing: 0; }
+    h1 { max-width: 850px; margin: .4rem 0 1rem; font-size: clamp(2.5rem, 7vw, 5.8rem); font-weight: 500; }
+    h2 { margin: 0 0 1.4rem; font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 500; }
+    h3 { margin: 2.2rem 0 .65rem; font-size: 1.4rem; }
+    .lede { max-width: 760px; margin: 0; color: var(--muted); font-size: 1.12rem; }
+    .theme-toggle {
+      position: absolute; top: 1.4rem; right: 1.5rem; min-width: 44px; min-height: 44px;
+      border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer;
+    }
+    .tabs-shell { position: sticky; top: 0; z-index: 10; background: var(--canvas); border-bottom: 1px solid var(--border); }
+    .tabs { display: flex; max-width: 1180px; margin: 0 auto; padding: 0 1.5rem; overflow-x: auto; scrollbar-width: thin; }
+    .tabs button {
+      flex: 0 0 auto; padding: 1rem .9rem; border: 0; border-bottom: 4px solid transparent;
+      background: transparent; color: var(--muted); font-size: .76rem; font-weight: 700; cursor: pointer;
+    }
+    .tabs button[aria-selected="true"] { color: var(--text); border-color: var(--accent-2); }
+    main { max-width: 1180px; margin: 0 auto; padding: 2.6rem 1.5rem 6rem; }
+    section { animation: reveal .28s ease-out; }
+    section[hidden] { display: none; }
+    @keyframes reveal { from { opacity: 0; transform: translateY(8px); } }
+    .section-intro { max-width: 760px; color: var(--muted); font-size: 1.12rem; }
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1rem; margin: 2rem 0; }
+    .card { grid-column: span 4; padding: 1.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow); }
+    .card h3 { margin-top: 0; font-size: 1.15rem; }
+    .card p:last-child { margin-bottom: 0; }
+    .wide { grid-column: span 8; }
+    .full { grid-column: 1 / -1; }
+    .metric { display: block; margin-bottom: .5rem; color: var(--accent-2); font-size: .8rem; font-weight: 700; }
+    .callout { margin: 2rem 0; padding: 1.2rem 1.35rem; border-left: 5px solid var(--accent-2); background: var(--accent-soft); }
+    .callout strong { color: var(--accent-2); }
+    .formula { overflow-x: auto; margin: 1rem 0; padding: 1rem 1.2rem; background: var(--surface-2); border: 1px solid var(--border); font-family: "DejaVu Sans Mono", Consolas, monospace; font-size: .95rem; }
+    pre { overflow-x: auto; padding: 1.2rem; background: var(--code-bg); color: var(--code-text); border-radius: 4px; font-size: .8rem; line-height: 1.55; }
+    :not(pre) > code { padding: .1em .28em; background: var(--surface-2); color: var(--accent-2); border: 1px solid var(--border); border-radius: 3px; font-size: .86em; }
+    .table-wrap { overflow-x: auto; margin: 1.4rem 0 2.2rem; border: 1px solid var(--border); }
+    table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: .78rem; line-height: 1.45; background: var(--surface); }
+    th, td { padding: .9rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
+    th { background: var(--table-head); color: var(--text); }
+    tr:last-child td { border-bottom: 0; }
+    figure { margin: 2rem 0; padding: 1.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
+    svg { display: block; width: 100%; height: auto; max-height: 520px; }
+    svg text { fill: var(--text); font-family: "DejaVu Sans Mono", Consolas, monospace; }
+    .diagram-line { stroke: var(--line); }
+    .diagram-node { fill: var(--node); stroke: var(--line); }
+    .diagram-hot { fill: var(--node-hot); stroke: var(--accent-2); }
+    .diagram-cool { fill: var(--node-cool); stroke: var(--accent); }
+    figcaption { margin-top: .9rem; color: var(--muted); font-size: .86rem; }
+    dl { display: grid; grid-template-columns: minmax(150px, 240px) 1fr; gap: .7rem 1.2rem; }
+    dt { color: var(--accent-2); font-family: "DejaVu Sans Mono", Consolas, monospace; font-weight: 700; }
+    dd { margin: 0; }
+    .source { margin: 1rem 0; padding: 1rem 1.2rem; background: var(--surface); border-left: 3px solid var(--accent); }
+    .source p { margin: .35rem 0; }
+    .source-meta { color: var(--muted); font-size: .83rem; }
+    .citation { font-family: "DejaVu Sans Mono", Consolas, monospace; font-size: .72em; font-weight: 700; text-decoration: none; vertical-align: super; }
+    .revision { margin-top: 2rem; color: var(--muted); font-size: .86rem; }
+    @media (max-width: 760px) {
+      body { font-size: 16px; }
+      .masthead { padding-top: 4.5rem; }
+      .theme-toggle { top: 1rem; right: 1rem; }
+      .card, .wide { grid-column: 1 / -1; }
+      dl { grid-template-columns: 1fr; gap: .2rem; }
+      dd { margin-bottom: .8rem; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; } }
+    @media print {
+      :root { color-scheme: light; --canvas: #fff; --surface: #fff; --surface-2: #f1f1f1; --text: #111; --muted: #444; --border: #aaa; --accent: #075; --accent-2: #922; --code-bg: #eee; --code-text: #111; --table-head: #ddd; --line: #555; --node: #fff; }
+      body { background: #fff; font-size: 11pt; }
+      .tabs-shell, .theme-toggle { display: none; }
+      main { max-width: none; padding: 1rem; }
+      section[hidden] { display: block; }
+      section { break-before: page; }
+      .card, figure { box-shadow: none; break-inside: avoid; }
+      a { color: #075; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="masthead">
+      <span class="eyebrow">AI engineering field notes / deep dive</span>
+      <h1>Vector databases, under the hood</h1>
+      <p class="lede">How dense vectors become searchable, why approximate nearest-neighbor indexes work, and how HNSW, inverted files, quantization, filtering, and reranking shape a production RAG system. Assumes basic familiarity with embeddings.</p>
+      <button class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch to dark theme" title="Toggle light and dark theme">◐</button>
+    </div>
+  </header>
+
+  <div class="tabs-shell">
+    <nav class="tabs" role="tablist" aria-label="Vector database topics">
+      <button id="tab-overview" role="tab" aria-controls="overview" aria-selected="true" tabindex="0">01 / Map</button>
+      <button id="tab-vector-math" role="tab" aria-controls="vector-math" aria-selected="false" tabindex="-1">02 / Math</button>
+      <button id="tab-ann" role="tab" aria-controls="ann" aria-selected="false" tabindex="-1">03 / ANN</button>
+      <button id="tab-hnsw" role="tab" aria-controls="hnsw" aria-selected="false" tabindex="-1">04 / HNSW</button>
+      <button id="tab-ivf-pq" role="tab" aria-controls="ivf-pq" aria-selected="false" tabindex="-1">05 / IVF + PQ</button>
+      <button id="tab-rag-engineering" role="tab" aria-controls="rag-engineering" aria-selected="false" tabindex="-1">06 / RAG</button>
+      <button id="tab-sources" role="tab" aria-controls="sources" aria-selected="false" tabindex="-1">07 / Sources</button>
+    </nav>
+  </div>
+
+  <main>
+    <!-- teach:section:overview:start -->
+    <section id="overview" role="tabpanel" aria-labelledby="tab-overview">
+      <h2>The system, not the label</h2>
+      <p class="section-intro">A vector database is a database system whose retrieval path treats a vector as a first-class searchable value. The vector index is only one component. Storage, metadata indexes, mutation handling, filtering, replication, sharding, and query planning determine whether that index is useful in production.</p>
+
+      <figure>
+        <svg viewBox="0 0 1000 360" role="img" aria-labelledby="map-title map-desc">
+          <title id="map-title">Vector retrieval pipeline</title>
+          <desc id="map-desc">A query moves through embedding, metadata filtering, approximate candidate generation, exact reranking, and context assembly.</desc>
+          <defs><marker id="arrow-map" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--line)"/></marker></defs>
+          <path class="diagram-line" d="M165 170H275 M405 170H515 M645 170H755" stroke-width="3" fill="none" marker-end="url(#arrow-map)"/>
+          <rect class="diagram-node" x="25" y="115" width="140" height="110" rx="4"/><text x="95" y="155" text-anchor="middle" font-size="15">query text</text><text x="95" y="184" text-anchor="middle" font-size="12">+ constraints</text>
+          <rect class="diagram-cool" x="275" y="115" width="130" height="110" rx="4"/><text x="340" y="155" text-anchor="middle" font-size="15">embedding</text><text x="340" y="184" text-anchor="middle" font-size="12">q ∈ Rᵈ</text>
+          <rect class="diagram-hot" x="515" y="90" width="130" height="160" rx="4"/><text x="580" y="135" text-anchor="middle" font-size="15">ANN index</text><text x="580" y="166" text-anchor="middle" font-size="12">HNSW / IVF</text><text x="580" y="198" text-anchor="middle" font-size="12">C candidates</text>
+          <rect class="diagram-node" x="755" y="90" width="215" height="160" rx="4"/><text x="862" y="130" text-anchor="middle" font-size="15">exact score + rerank</text><text x="862" y="163" text-anchor="middle" font-size="12">dedupe / diversify</text><text x="862" y="196" text-anchor="middle" font-size="12">top-k context</text>
+          <path class="diagram-line" d="M580 275V320H862V250" stroke-width="2" fill="none" stroke-dasharray="7 6" marker-end="url(#arrow-map)"/>
+          <text x="720" y="345" text-anchor="middle" font-size="12">stored full-precision vectors + documents</text>
+        </svg>
+        <figcaption>The ANN index should usually generate candidates, not make the final relevance decision. This candidate funnel is the central mental model for vector retrieval.</figcaption>
+      </figure>
+
+      <div class="grid">
+        <article class="card"><span class="metric">REPRESENTATION</span><h3>Embeddings</h3><p>A model maps text, images, or other objects into points in a fixed-dimensional space. Geometry reflects the model's training objective, not universal meaning.</p></article>
+        <article class="card"><span class="metric">OBJECTIVE</span><h3>k-nearest neighbors</h3><p>Given query vector <code>q</code>, return the <code>k</code> stored vectors with best score under one chosen metric. Exact flat search is the reference answer.</p></article>
+        <article class="card"><span class="metric">ACCELERATOR</span><h3>ANN index</h3><p>Skip most distance computations while trying to preserve the true neighbors. “Approximate” modifies retrieval, not the vector values themselves.</p></article>
+      </div>
+
+      <h3>Where a vector database fits</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Need</th><th>Good fit</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Semantic candidate retrieval over a large corpus</td><td>Vector search</td><td>Embedding proximity can retrieve paraphrases and conceptually related passages.</td></tr>
+          <tr><td>Exact identifiers, dates, permissions, stock state</td><td>Structured indexes and filters</td><td>Do not ask an embedding to encode facts that require exact predicates.</td></tr>
+          <tr><td>Rare names, codes, quoted phrases</td><td>Lexical inverted index</td><td>Token matching retains exact surface-form evidence that dense embeddings may blur.</td></tr>
+          <tr><td>Final relevance ordering</td><td>Reranker or task score</td><td>Nearest in embedding space is a proxy for relevance, not relevance itself.</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="callout"><strong>Keep the layers separate.</strong> The embedding model defines the geometry. The distance metric interprets it. The ANN index approximates search over it. The database operates and filters it. A failure in one layer cannot always be fixed by tuning another.</div>
+    </section>
+    <!-- teach:section:overview:end -->
+
+    <!-- teach:section:vector-math:start -->
+    <section id="vector-math" role="tabpanel" aria-labelledby="tab-vector-math">
+      <h2>Geometry is the contract</h2>
+      <p class="section-intro">An index preserves rankings induced by a metric. If the embedding model expects cosine similarity but the index uses raw inner product, the system is faithfully optimizing the wrong neighborhood.</p>
+
+      <div class="grid">
+        <article class="card"><span class="metric">EUCLIDEAN</span><h3>Squared L2</h3><div class="formula">d²(x,y) = Σᵢ(xᵢ − yᵢ)²</div><p>Measures geometric separation. Squaring avoids a square root without changing rank. Faiss reports squared L2 for this reason.<a class="citation" href="#source-s2">[2]</a></p></article>
+        <article class="card"><span class="metric">ANGULAR</span><h3>Cosine similarity</h3><div class="formula">cos(x,y) = (x·y) / (||x|| ||y||)</div><p>Compares direction while discarding magnitude. Higher is closer. Normalize both stored and query vectors when implementing cosine through inner product.</p></article>
+        <article class="card"><span class="metric">MAGNITUDE-AWARE</span><h3>Inner product</h3><div class="formula">s(x,y) = x·y = Σᵢxᵢyᵢ</div><p>Both direction and stored-vector norm affect ranking. Useful when magnitude carries model meaning, as in some recommendation objectives.</p></article>
+      </div>
+
+      <h3>The normalization identity</h3>
+      <p>For unit vectors, cosine, inner product, and L2 induce the same ordering:</p>
+      <div class="formula">||x − y||² = ||x||² + ||y||² − 2x·y = 2 − 2x·y</div>
+      <p>This equivalence is exact only after normalization. The query norm does not affect inner-product ranking, but each database vector's norm does.<a class="citation" href="#source-s2">[2]</a></p>
+
+      <h3>Why high dimensions change the engineering</h3>
+      <p>A flat scan over <code>N</code> vectors of dimension <code>d</code> performs roughly <code>N × d</code> component operations per query. At one million 1,536-dimensional float32 vectors, raw vector storage alone is about 6.14 GB before IDs, graph links, metadata, allocator overhead, replicas, or indexes.</p>
+      <pre><code># Back-of-envelope working-set estimate
+raw_vector_bytes = N * dimensions * bytes_per_component
+                   = 1_000_000 * 1_536 * 4
+                   = 6_144_000_000 bytes
+
+# HNSW then adds graph adjacency and implementation overhead.
+# IVF-PQ can shrink candidate codes, while retaining originals for reranking.</code></pre>
+
+      <div class="callout"><strong>Metric migration is an index migration.</strong> Changing embedding model, dimensionality, normalization, or distance function changes the searchable space. Store model/version metadata and rebuild into a new collection or index rather than mixing incompatible vectors.</div>
+    </section>
+    <!-- teach:section:vector-math:end -->
+
+    <!-- teach:section:ann:start -->
+    <section id="ann" role="tabpanel" aria-labelledby="tab-ann">
+      <h2>ANN is a budgeted search</h2>
+      <p class="section-intro">Approximate nearest-neighbor algorithms spend a controlled amount of work exploring promising regions. Their real output is a latency–recall operating point, not a universal “fast” index.</p>
+
+      <h3>Start with exact ground truth</h3>
+      <p>For a representative query set, compute exact top-<code>k</code> results using a flat scan. Then compare each ANN result set to that ground truth. Faiss explicitly treats <code>IndexFlatL2</code> and <code>IndexFlatIP</code> as the exact baseline.<a class="citation" href="#source-s4">[4]</a></p>
+      <div class="formula">recall@k = |ANNₖ(q) ∩ Exactₖ(q)| / k</div>
+      <p>Average recall across queries can hide failures on important slices. Break it down by tenant, language, filter selectivity, query length, corpus age, and difficult semantic categories.</p>
+
+      <div class="grid">
+        <article class="card"><span class="metric">QUALITY</span><h3>Recall@k</h3><p>How many true top-<code>k</code> neighbors survived candidate generation? This measures index approximation, not whether those neighbors answer the user.</p></article>
+        <article class="card"><span class="metric">SYSTEM</span><h3>p50 / p95 / p99</h3><p>Tail latency matters under concurrent load, cache misses, compaction, filtering, and shard fan-out. Report warm and cold behavior separately.</p></article>
+        <article class="card"><span class="metric">ECONOMICS</span><h3>Memory and build cost</h3><p>Track resident memory, bytes per vector, build duration, write amplification, and rebuild time. Query speed alone can choose an unaffordable design.</p></article>
+      </div>
+
+      <h3>What “approximate” can mean</h3>
+      <dl>
+        <dt>Graph pruning</dt><dd>Visit only a navigable subset of vectors, as in HNSW.</dd>
+        <dt>Space partitioning</dt><dd>Search only selected centroid cells, as in IVF.</dd>
+        <dt>Lossy scoring</dt><dd>Compare compressed representations, as in scalar or product quantization.</dd>
+        <dt>Disk-aware traversal</dt><dd>Arrange a graph and cache so a small number of SSD reads can reach good candidates, as in DiskANN.<a class="citation" href="#source-s7">[7]</a></dd>
+      </dl>
+      <p>These techniques compose. An IVF-PQ index both skips cells and approximates distances inside them. A quantized HNSW index combines graph exploration with compressed vectors. Reranking can recover precision after either.</p>
+
+      <h3>A defensible benchmark loop</h3>
+      <pre><code>freeze corpus snapshot + embedding model + metric
+sample production-like queries and metadata filters
+compute exact top-k ground truth
+
+for index_configuration in candidate_configs:
+    build from the same snapshot
+    warm according to the expected deployment
+    run concurrent queries at target throughput
+    record recall@k, p50/p95/p99, QPS, RAM, disk, build time
+
+choose a Pareto point, then evaluate end-to-end RAG answer quality</code></pre>
+      <p>ANN-Benchmarks exists because different algorithms and parameter settings can yield comparable quality-performance tradeoffs; benchmark the data distribution and hardware you will operate.<a class="citation" href="#source-s5">[5]</a></p>
+    </section>
+    <!-- teach:section:ann:end -->
+
+    <!-- teach:section:hnsw:start -->
+    <section id="hnsw" role="tabpanel" aria-labelledby="tab-hnsw">
+      <h2>HNSW: navigate a hierarchy</h2>
+      <p class="section-intro">Hierarchical Navigable Small World builds proximity graphs at several resolutions. Sparse upper layers make long jumps; the dense bottom layer refines locally. The structure resembles a geometric skip list.<a class="citation" href="#source-s3">[3]</a></p>
+
+      <figure>
+        <svg viewBox="0 0 1000 510" role="img" aria-labelledby="hnsw-title hnsw-desc">
+          <title id="hnsw-title">HNSW multilayer graph search</title>
+          <desc id="hnsw-desc">Search begins at a sparse top layer and descends through increasingly dense proximity graphs toward the query.</desc>
+          <defs><marker id="arrow-h" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--accent-2)"/></marker></defs>
+          <text x="40" y="65" font-size="14">L2 / long jumps</text><text x="40" y="220" font-size="14">L1</text><text x="40" y="395" font-size="14">L0 / local refinement</text>
+          <g class="diagram-line" stroke-width="2" fill="none"><path d="M180 55L500 80L820 45"/><path d="M180 205L340 170L500 230L665 180L820 215"/><path d="M180 205L500 230L820 215"/><path d="M155 400L250 355L340 420L430 365L515 425L600 350L690 410L790 355L880 420"/><path d="M155 400L340 420L515 425L690 410L880 420"/></g>
+          <g><circle class="diagram-node" cx="180" cy="55" r="19"/><circle class="diagram-hot" cx="500" cy="80" r="19"/><circle class="diagram-node" cx="820" cy="45" r="19"/>
+          <circle class="diagram-node" cx="180" cy="205" r="18"/><circle class="diagram-node" cx="340" cy="170" r="18"/><circle class="diagram-hot" cx="500" cy="230" r="18"/><circle class="diagram-hot" cx="665" cy="180" r="18"/><circle class="diagram-node" cx="820" cy="215" r="18"/>
+          <circle class="diagram-node" cx="155" cy="400" r="17"/><circle class="diagram-node" cx="250" cy="355" r="17"/><circle class="diagram-node" cx="340" cy="420" r="17"/><circle class="diagram-node" cx="430" cy="365" r="17"/><circle class="diagram-node" cx="515" cy="425" r="17"/><circle class="diagram-hot" cx="600" cy="350" r="17"/><circle class="diagram-hot" cx="690" cy="410" r="17"/><circle class="diagram-cool" cx="790" cy="355" r="22"/><circle class="diagram-node" cx="880" cy="420" r="17"/></g>
+          <path d="M180 55C300 90 400 80 500 80S610 150 665 180S650 300 600 350S720 350 790 355" stroke="var(--accent-2)" stroke-width="5" fill="none" stroke-dasharray="10 7" marker-end="url(#arrow-h)"/>
+          <text x="790" y="315" text-anchor="middle" font-size="13">query neighborhood</text>
+        </svg>
+        <figcaption>Conceptual search path. Real HNSW keeps candidate and result queues and may explore several neighbors at each level, especially at layer 0.</figcaption>
+      </figure>
+
+      <h3>Construction</h3>
+      <ol>
+        <li>Assign a new vector a maximum layer sampled from an exponentially decaying distribution. Most nodes exist only at layer 0; progressively fewer reach upper layers.</li>
+        <li>From the current entry point, greedily descend through layers above the new node's level.</li>
+        <li>At each remaining layer, run a bounded neighborhood search with candidate width <code>efConstruction</code>.</li>
+        <li>Select up to <code>M</code> diverse neighbors, add bidirectional links, and prune overfull adjacency lists. Diversity prevents every edge from pointing into one dense cluster.</li>
+      </ol>
+
+      <h3>Query</h3>
+      <pre><code>entry = graph.entry_point
+
+# Upper layers: greedy routing, usually one best point survives.
+for level from max_level down to 1:
+    entry = greedy_closest(query, entry, level)
+
+# Base layer: best-first expansion with bounded working queues.
+candidates = min_heap([entry])       # nearest unexplored first
+results    = max_heap([entry])       # worst current result first
+visited    = {entry}
+
+while candidates not empty:
+    current = pop_nearest(candidates)
+    if distance(current, query) > distance(worst(results), query): break
+    for neighbor in graph[current]:
+        if neighbor not in visited and promising(neighbor, results):
+            push(candidate, results)
+            trim results to efSearch
+
+return best k from results</code></pre>
+
+      <div class="table-wrap"><table>
+        <thead><tr><th>Knob</th><th>When paid</th><th>Increase it</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td><code>M</code></td><td>Build and storage</td><td>More graph connectivity; often better recall on difficult data</td><td>More adjacency memory, build work, and distance checks</td></tr>
+          <tr><td><code>efConstruction</code></td><td>Build / insert</td><td>Better candidate search while choosing edges</td><td>Slower indexing; often a better graph</td></tr>
+          <tr><td><code>efSearch</code></td><td>Every query</td><td>Explore a wider layer-0 frontier; usually better recall</td><td>Higher latency and CPU; should be at least <code>k</code></td></tr>
+        </tbody>
+      </table></div>
+      <p>Implementations expose these names with small variations. Faiss documents <code>M</code>, <code>efConstruction</code>, and <code>efSearch</code>; pgvector defaults to <code>m=16</code>, <code>ef_construction=64</code>, and <code>ef_search=40</code> in its current documentation.<a class="citation" href="#source-s4">[4]</a><a class="citation" href="#source-s6">[6]</a></p>
+
+      <h3>Strengths and failure modes</h3>
+      <div class="grid">
+        <article class="card wide"><h3>Why teams choose it</h3><p>High recall at low latency, no centroid-training phase, incremental insertion, and a direct search-time quality knob. It is often an excellent default when the graph and vectors fit the memory hierarchy.</p></article>
+        <article class="card"><h3>What bites</h3><p>Graph links consume memory. Deletes and updates can require tombstones or rebuilding. Selective filters can disconnect the useful path or leave too few acceptable candidates.</p></article>
+      </div>
+      <div class="callout"><strong>Filtering changes graph search.</strong> Post-filtering may return fewer than <code>k</code> hits. Integrated filtering may force wider exploration or switch to exact search over a small filtered set. Elasticsearch documents both adaptive behaviors; pgvector offers iterative scans to continue until enough filtered results are found.<a class="citation" href="#source-s8">[8]</a><a class="citation" href="#source-s6">[6]</a></div>
+    </section>
+    <!-- teach:section:hnsw:end -->
+
+    <!-- teach:section:ivf-pq:start -->
+    <section id="ivf-pq" role="tabpanel" aria-labelledby="tab-ivf-pq">
+      <h2>IVF: search selected cells</h2>
+      <p class="section-intro">An inverted file index learns coarse centroids, assigns each vector to a centroid's list, and probes only the lists nearest the query. The skipped lists provide the speedup; a missed neighboring cell causes the approximation error.<a class="citation" href="#source-s4">[4]</a></p>
+
+      <figure>
+        <svg viewBox="0 0 1000 500" role="img" aria-labelledby="ivf-title ivf-desc">
+          <title id="ivf-title">IVF centroid partition and probing</title>
+          <desc id="ivf-desc">Vectors are grouped around four coarse centroids. A query probes the two nearest cells and scans only their lists.</desc>
+          <g fill="none" stroke="var(--border)" stroke-width="2" stroke-dasharray="8 7"><path d="M500 20L480 480"/><path d="M20 260L980 245"/><path d="M130 50L500 260L870 55"/><path d="M130 450L500 260L890 450"/></g>
+          <g fill="var(--line)" opacity=".72"><circle cx="170" cy="125" r="8"/><circle cx="230" cy="160" r="8"/><circle cx="310" cy="100" r="8"/><circle cx="195" cy="220" r="8"/><circle cx="690" cy="95" r="8"/><circle cx="790" cy="140" r="8"/><circle cx="850" cy="95" r="8"/><circle cx="760" cy="210" r="8"/><circle cx="160" cy="350" r="8"/><circle cx="250" cy="410" r="8"/><circle cx="330" cy="335" r="8"/><circle cx="790" cy="335" r="8"/><circle cx="700" cy="410" r="8"/><circle cx="875" cy="400" r="8"/><circle cx="625" cy="345" r="8"/></g>
+          <g><rect class="diagram-node" x="215" y="105" width="32" height="32" transform="rotate(45 231 121)"/><rect class="diagram-node" x="755" y="130" width="32" height="32" transform="rotate(45 771 146)"/><rect class="diagram-node" x="225" y="355" width="32" height="32" transform="rotate(45 241 371)"/><rect class="diagram-hot" x="695" y="345" width="36" height="36" transform="rotate(45 713 363)"/></g>
+          <circle class="diagram-cool" cx="590" cy="310" r="19"/><text x="590" y="316" text-anchor="middle" font-size="14">q</text>
+          <path d="M590 310L713 363" stroke="var(--accent-2)" stroke-width="5"/><path d="M590 310L771 146" stroke="var(--accent-2)" stroke-width="3" stroke-dasharray="8 6"/>
+          <text x="825" y="285" font-size="13">nlist = 4</text><text x="825" y="315" font-size="13">nprobe = 2</text><text x="825" y="345" font-size="13">scan 2 lists</text>
+        </svg>
+        <figcaption>Diamonds are learned coarse centroids. With <code>nprobe=2</code>, vectors assigned to the other two lists are never scored, even if one lies close to a cell boundary.</figcaption>
+      </figure>
+
+      <h3>Build and query mechanics</h3>
+      <pre><code># Training
+centroids = kmeans(training_vectors, nlist)
+for vector in database:
+    list_id = argmin(distance(vector, centroid) for centroid in centroids)
+    inverted_lists[list_id].append(vector_id, encoded_vector)
+
+# Query
+probe_ids = nearest_centroids(query, nprobe)
+candidates = concatenate(inverted_lists[id] for id in probe_ids)
+return top_k(score(query, candidate) for candidate in candidates)</code></pre>
+      <p>As a rough first approximation, IVF scans <code>nprobe / nlist</code> of the database, though uneven cluster populations make the true fraction larger or smaller. Increasing <code>nprobe</code> improves recall and costs latency. Increasing <code>nlist</code> creates smaller lists but raises training, assignment, and centroid-search costs.<a class="citation" href="#source-s4">[4]</a></p>
+
+      <div class="callout"><strong>“Inverted” has two meanings.</strong> A lexical inverted index maps terms to document posting lists. IVF maps learned vector-space cells to vector IDs or codes. Both reverse “item → bucket” into “bucket → items,” but their buckets and scoring are different. Hybrid RAG often uses both.</div>
+
+      <h3>Product quantization: compress the payload</h3>
+      <p>IVF decides <em>where to look</em>. Product quantization decides <em>how cheaply to store and compare what is there</em>. Split a <code>d</code>-dimensional vector into <code>m</code> subvectors. Train a small codebook in each subspace. Replace each subvector with its nearest codeword ID.</p>
+      <div class="formula">x = [x¹ | x² | … | xᵐ]  →  code(x) = [c₁, c₂, …, cₘ]</div>
+      <p>With 256 centroids per subspace, each code is one byte. A 1,536-dimensional float32 vector takes 6,144 bytes; a 96-subquantizer code takes 96 bytes, plus IDs and codebooks. Approximate distance computation precomputes query-to-codeword distances, then sums <code>m</code> table lookups per candidate. Faiss describes PQ as lossy compression that supports distance computation in the compressed domain.<a class="citation" href="#source-s1">[1]</a></p>
+
+      <h3>IVF, PQ, and IVF-PQ are not synonyms</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Index</th><th>Candidate pruning</th><th>Vector representation scanned</th><th>Main tradeoff</th></tr></thead>
+        <tbody>
+          <tr><td>Flat</td><td>None</td><td>Full vector</td><td>Exact, simple, linear scan</td></tr>
+          <tr><td>IVF-Flat</td><td>Probe selected centroid lists</td><td>Full vector</td><td>Less scanning, original-vector memory remains</td></tr>
+          <tr><td>PQ</td><td>None by itself</td><td>Compressed code</td><td>Small memory, approximate distance over all codes</td></tr>
+          <tr><td>IVF-PQ</td><td>Probe selected lists</td><td>Compressed residual or vector code</td><td>Large speed and memory gains, two approximation sources</td></tr>
+          <tr><td>IVF-PQ + rerank</td><td>Probe, score codes, retain candidates</td><td>Original vectors for final shortlist</td><td>More I/O or memory, better final precision</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>When IVF-style designs win</h3>
+      <p>They are attractive when memory is constrained, GPU batch throughput matters, the corpus changes in rebuild-friendly batches, or the scale makes a fully resident graph expensive. They demand representative training data and monitoring for cluster imbalance and distribution drift. HNSW usually offers a stronger speed-recall point when memory is available; current pgvector documentation states that its HNSW implementation uses more memory and builds more slowly than IVFFlat, while providing better query performance.<a class="citation" href="#source-s6">[6]</a></p>
+    </section>
+    <!-- teach:section:ivf-pq:end -->
+
+    <!-- teach:section:rag-engineering:start -->
+    <section id="rag-engineering" role="tabpanel" aria-labelledby="tab-rag-engineering">
+      <h2>Engineer retrieval as a funnel</h2>
+      <p class="section-intro">In RAG, ANN recall is necessary but insufficient. The system must retrieve answer-bearing chunks, respect access controls, avoid redundant context, and do so within a latency and token budget.</p>
+
+      <figure>
+        <svg viewBox="0 0 1000 460" role="img" aria-labelledby="funnel-title funnel-desc">
+          <title id="funnel-title">RAG candidate funnel</title>
+          <desc id="funnel-desc">A large corpus narrows through metadata filtering, dense and lexical retrieval, fusion, reranking, and context packing.</desc>
+          <g stroke="var(--line)" stroke-width="2">
+            <path d="M80 55H920L850 125H150Z" fill="var(--surface-2)"/>
+            <path d="M150 145H850L780 215H220Z" fill="var(--accent-soft)"/>
+            <path d="M220 235H780L700 305H300Z" fill="var(--surface-2)"/>
+            <path d="M300 325H700L610 405H390Z" fill="var(--node-hot)"/>
+          </g>
+          <text x="500" y="96" text-anchor="middle" font-size="15">authorized corpus / metadata predicates</text>
+          <text x="500" y="186" text-anchor="middle" font-size="15">dense ANN + lexical retrieval</text>
+          <text x="500" y="276" text-anchor="middle" font-size="15">fusion, exact score, reranker</text>
+          <text x="500" y="373" text-anchor="middle" font-size="15">diverse context for LLM</text>
+          <text x="935" y="95" font-size="12">N</text><text x="865" y="185" font-size="12">C</text><text x="790" y="275" font-size="12">R</text><text x="700" y="370" font-size="12">k</text>
+        </svg>
+        <figcaption>Typical ordering, not a fixed implementation. Some engines integrate filters into graph traversal; others prefilter, post-filter, partition, or adaptively switch to exact search.</figcaption>
+      </figure>
+
+      <h3>A worked retrieval flow</h3>
+      <ol>
+        <li>Chunk documents at semantic boundaries and preserve parent ID, offsets, title, source, tenant, ACL, timestamps, and embedding version.</li>
+        <li>Embed chunks and queries with the same model and preprocessing. Normalize if required by the metric contract.</li>
+        <li>Apply hard authorization and tenancy constraints. Never rely on semantic similarity for access control.</li>
+        <li>Retrieve a generous candidate set, for example dense <code>C=100</code> plus lexical <code>C=100</code>. Tune HNSW <code>efSearch</code> or IVF <code>nprobe</code> against candidate recall.</li>
+        <li>Fuse rankings, then rerank perhaps <code>R=40</code> passages with a cross-encoder or task-specific scorer.</li>
+        <li>Collapse duplicate or adjacent chunks, diversify across sources, and pack the best <code>k</code> within the model's context budget.</li>
+      </ol>
+
+      <h3>Retrieval failure diagnosis</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Observed failure</th><th>Likely layer</th><th>Discriminating check</th></tr></thead>
+        <tbody>
+          <tr><td>Exact vector search also misses the answer</td><td>Embedding, chunking, corpus, or metric</td><td>Inspect nearest exact chunks and compare alternate chunk/model settings.</td></tr>
+          <tr><td>Exact finds it; ANN misses it</td><td>Index operating point</td><td>Measure recall@C and increase <code>efSearch</code> or <code>nprobe</code>.</td></tr>
+          <tr><td>Unfiltered succeeds; filtered search misses</td><td>Filter/index interaction</td><td>Compare prefilter, integrated filter, post-filter, and exact-on-filtered-subset behavior.</td></tr>
+          <tr><td>Candidate contains answer; final context drops it</td><td>Fusion, reranking, dedupe, or packing</td><td>Log ranks at every funnel stage with stable chunk IDs.</td></tr>
+          <tr><td>Good context; bad answer</td><td>Generation and prompting</td><td>Evaluate answer faithfulness against supplied evidence, separately from retrieval.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Index choice by constraint</h3>
+      <dl>
+        <dt>Flat first</dt><dd>Use for small or heavily filtered corpora, low query counts, and ground truth. Index build cost may not amortize when searches are rare.<a class="citation" href="#source-s4">[4]</a></dd>
+        <dt>HNSW</dt><dd>Choose when high recall and low online latency matter, memory can hold vectors plus graph, and incremental inserts are important.</dd>
+        <dt>IVF-Flat</dt><dd>Choose when training is acceptable, batch/GPU search matters, and you want partition pruning without lossy vector codes.</dd>
+        <dt>IVF-PQ</dt><dd>Choose when scale or memory dominates and reranking can recover final precision.</dd>
+        <dt>Disk-aware graph</dt><dd>Choose when the full graph or vectors cannot live in RAM. DiskANN demonstrated billion-point search on a single SSD-backed node, though its published benchmark numbers are hardware and dataset specific.<a class="citation" href="#source-s7">[7]</a></dd>
+      </dl>
+
+      <h3>Production checklist that changes outcomes</h3>
+      <div class="grid">
+        <article class="card"><h3>Version everything</h3><p>Embedding model, dimensions, normalization, metric, chunking policy, index build, and corpus snapshot.</p></article>
+        <article class="card"><h3>Measure two recalls</h3><p>ANN recall against exact neighbors, then retrieval recall against answer-bearing judgments. They answer different questions.</p></article>
+        <article class="card"><h3>Test filters</h3><p>Benchmark realistic selectivities and ACL patterns. Filtering can reverse the apparent winner between exact, HNSW, and partitions.</p></article>
+        <article class="card"><h3>Budget fan-out</h3><p>Each shard may produce local candidates before global merge. More shards can raise latency and require larger candidate pools.</p></article>
+        <article class="card"><h3>Plan rebuilds</h3><p>Test model migrations, backups, compaction, tombstones, disaster recovery, and how long a full reindex actually takes.</p></article>
+        <article class="card"><h3>Hybridize deliberately</h3><p>Dense and lexical retrieval cover different failure modes. Fuse ranks or calibrated scores before reranking, and evaluate the combination.</p></article>
+      </div>
+
+      <div class="callout"><strong>A useful starting experiment:</strong> build a flat baseline and HNSW on the same snapshot. Sweep <code>efSearch</code> across at least five values under realistic concurrency and filters. Plot p95 latency against recall@50, then run the top three operating points through the same reranker and answer-quality evaluation. Add IVF-PQ only when that plot reveals a memory or throughput problem it can solve.</div>
+    </section>
+    <!-- teach:section:rag-engineering:end -->
+
+    <!-- teach:section:sources:start -->
+    <section id="sources" role="tabpanel" aria-labelledby="tab-sources">
+      <h2>Sources</h2>
+      <p class="section-intro">Primary papers and maintained implementation documentation anchor the algorithm and operational claims. Product documentation is used to illustrate current implementation behavior, not to claim universal performance.</p>
+
+      <article class="source" id="source-s1"><p><strong>[1] Welcome to Faiss Documentation</strong></p><p class="source-meta">Meta AI Research / Faiss · Primary documentation · Published or updated: Not stated · Accessed 2026-09-07</p><p><a href="https://faiss.ai/" target="_blank" rel="noreferrer">https://faiss.ai/</a></p><p>Selected for the formal similarity-search definition and Faiss's research foundations, including IVF and product quantization.</p></article>
+      <article class="source" id="source-s2"><p><strong>[2] MetricType and distances</strong></p><p class="source-meta">Faiss maintainers · Primary documentation · Updated 2024-12-04 · Accessed 2026-09-07</p><p><a href="https://github.com/facebookresearch/faiss/wiki/MetricType-and-distances" target="_blank" rel="noreferrer">https://github.com/facebookresearch/faiss/wiki/MetricType-and-distances</a></p><p>Selected for metric definitions, squared L2 behavior, normalization requirements, and the cosine/L2 identity.</p></article>
+      <article class="source" id="source-s3"><p><strong>[3] Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</strong></p><p class="source-meta">Yu. A. Malkov and D. A. Yashunin · Original paper · Submitted 2016-03-30; revised 2018-08-14 · Accessed 2026-09-07</p><p><a href="https://arxiv.org/abs/1603.09320" target="_blank" rel="noreferrer">https://arxiv.org/abs/1603.09320</a></p><p>Selected as the original HNSW paper for the layered proximity-graph design and probabilistic level assignment.</p></article>
+      <article class="source" id="source-s4"><p><strong>[4] Faiss indexes</strong></p><p class="source-meta">Faiss maintainers · Primary documentation · Updated 2025-07-29 · Accessed 2026-09-07</p><p><a href="https://github.com/facebookresearch/faiss/wiki/Faiss-indexes" target="_blank" rel="noreferrer">https://github.com/facebookresearch/faiss/wiki/Faiss-indexes</a></p><p>Selected for current Flat, HNSW, IVF, and PQ mechanics, memory formulas, parameters, and implementation constraints.</p></article>
+      <article class="source" id="source-s5"><p><strong>[5] ANN-Benchmarks: A Benchmarking Tool for Approximate Nearest Neighbor Algorithms</strong></p><p class="source-meta">Martin Aumüller, Erik Bernhardsson, and Alexander Faithfull · Original paper · Revised 2018-07-17 · Accessed 2026-09-07</p><p><a href="https://arxiv.org/abs/1807.05614" target="_blank" rel="noreferrer">https://arxiv.org/abs/1807.05614</a></p><p>Selected as independent methodology for comparing ANN quality-performance tradeoffs across algorithms and parameters.</p></article>
+      <article class="source" id="source-s6"><p><strong>[6] pgvector</strong></p><p class="source-meta">pgvector maintainers · Primary implementation documentation, version 0.8.6 shown at access · Published or updated: Not stated · Accessed 2026-09-07</p><p><a href="https://github.com/pgvector/pgvector" target="_blank" rel="noreferrer">https://github.com/pgvector/pgvector</a></p><p>Selected for operational HNSW and IVFFlat parameters, filtering behavior, iterative scans, exact baselines, and monitoring guidance.</p></article>
+      <article class="source" id="source-s7"><p><strong>[7] DiskANN: Fast Accurate Billion-point Nearest Neighbor Search on a Single Node</strong></p><p class="source-meta">Subramanya, Devvrit, Simhadri, Krishnawamy, and Kadekodi · NeurIPS 2019 original paper · Published 2019 · Accessed 2026-09-07</p><p><a href="https://proceedings.neurips.cc/paper/2019/hash/09853c7fb1d3f8ee67a61b6bf4a7f8e6-Abstract.html" target="_blank" rel="noreferrer">https://proceedings.neurips.cc/paper/2019/hash/09853c7fb1d3f8ee67a61b6bf4a7f8e6-Abstract.html</a></p><p>Selected as the primary source for SSD-oriented graph search and the Vamana index.</p></article>
+      <article class="source" id="source-s8"><p><strong>[8] kNN search in Elasticsearch</strong></p><p class="source-meta">Elastic · Primary product documentation · Published or updated: Not stated · Accessed 2026-09-07</p><p><a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/knn-search.html" target="_blank" rel="noreferrer">https://www.elastic.co/guide/en/elasticsearch/reference/current/knn-search.html</a></p><p>Selected for current examples of filtered HNSW traversal, exact fallback, shard candidate merging, quantized-vector rescoring, and hybrid retrieval.</p></article>
+
+      <p class="revision"><strong>Revision 1 · 2026-09-07:</strong> Created the guide with vector geometry, ANN evaluation, HNSW internals, IVF and product quantization, filtering, and RAG retrieval engineering.</p>
+    </section>
+    <!-- teach:section:sources:end -->
+  </main>
+
+  <script id="teach-manifest" type="application/json">
+  {
+    "schemaVersion": 1,
+    "topic": "Vector databases",
+    "slug": "vector-databases",
+    "aliases": ["vector DBs", "vector search", "ANN indexes", "HNSW", "inverted file indexes", "IVF"],
+    "purpose": "Understand vector database internals and make informed index choices for RAG systems",
+    "depth": "deep conceptual and practical engineering",
+    "focus": ["RAG", "approximate nearest neighbors", "HNSW", "inverted file indexes", "product quantization", "filtering", "benchmarking"],
+    "createdAt": "2026-09-07",
+    "updatedAt": "2026-09-07",
+    "revision": 1,
+    "sections": [
+      {"id": "overview", "title": "Map"},
+      {"id": "vector-math", "title": "Math"},
+      {"id": "ann", "title": "ANN"},
+      {"id": "hnsw", "title": "HNSW"},
+      {"id": "ivf-pq", "title": "IVF + PQ"},
+      {"id": "rag-engineering", "title": "RAG"},
+      {"id": "sources", "title": "Sources"}
+    ],
+    "sources": [
+      {"id":"s1","title":"Welcome to Faiss Documentation","publisher":"Meta AI Research / Faiss","url":"https://faiss.ai/","tier":"primary","publishedOrUpdated":"Not stated","accessedAt":"2026-09-07"},
+      {"id":"s2","title":"MetricType and distances","publisher":"Faiss maintainers","url":"https://github.com/facebookresearch/faiss/wiki/MetricType-and-distances","tier":"primary","publishedOrUpdated":"2024-12-04","accessedAt":"2026-09-07"},
+      {"id":"s3","title":"Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs","publisher":"Yu. A. Malkov and D. A. Yashunin","url":"https://arxiv.org/abs/1603.09320","tier":"primary","publishedOrUpdated":"2018-08-14","accessedAt":"2026-09-07"},
+      {"id":"s4","title":"Faiss indexes","publisher":"Faiss maintainers","url":"https://github.com/facebookresearch/faiss/wiki/Faiss-indexes","tier":"primary","publishedOrUpdated":"2025-07-29","accessedAt":"2026-09-07"},
+      {"id":"s5","title":"ANN-Benchmarks: A Benchmarking Tool for Approximate Nearest Neighbor Algorithms","publisher":"Martin Aumüller, Erik Bernhardsson, and Alexander Faithfull","url":"https://arxiv.org/abs/1807.05614","tier":"primary","publishedOrUpdated":"2018-07-17","accessedAt":"2026-09-07"},
+      {"id":"s6","title":"pgvector","publisher":"pgvector maintainers","url":"https://github.com/pgvector/pgvector","tier":"primary","publishedOrUpdated":"Not stated","accessedAt":"2026-09-07"},
+      {"id":"s7","title":"DiskANN: Fast Accurate Billion-point Nearest Neighbor Search on a Single Node","publisher":"NeurIPS","url":"https://proceedings.neurips.cc/paper/2019/hash/09853c7fb1d3f8ee67a61b6bf4a7f8e6-Abstract.html","tier":"primary","publishedOrUpdated":"2019","accessedAt":"2026-09-07"},
+      {"id":"s8","title":"kNN search in Elasticsearch","publisher":"Elastic","url":"https://www.elastic.co/guide/en/elasticsearch/reference/current/knn-search.html","tier":"primary","publishedOrUpdated":"Not stated","accessedAt":"2026-09-07"}
+    ],
+    "revisions": [
+      {"revision": 1, "date": "2026-09-07", "summary": "Created a deep guide to vector database internals, ANN evaluation, HNSW, IVF-PQ, and RAG retrieval engineering."}
+    ]
+  }
+  </script>
+  <script>
+    (() => {
+      const tabs = [...document.querySelectorAll('[role="tab"]')];
+      const panels = [...document.querySelectorAll('[role="tabpanel"]')];
+      const themeButton = document.querySelector('.theme-toggle');
+
+      function activate(tab, updateHash = true) {
+        tabs.forEach((item) => {
+          const active = item === tab;
+          item.setAttribute('aria-selected', String(active));
+          item.tabIndex = active ? 0 : -1;
+        });
+        panels.forEach((panel) => { panel.hidden = panel.id !== tab.getAttribute('aria-controls'); });
+        if (updateHash) history.replaceState(null, '', `#${tab.getAttribute('aria-controls')}`);
+      }
+
+      tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => activate(tab));
+        tab.addEventListener('keydown', (event) => {
+          let next = null;
+          if (event.key === 'ArrowRight') next = tabs[(index + 1) % tabs.length];
+          if (event.key === 'ArrowLeft') next = tabs[(index - 1 + tabs.length) % tabs.length];
+          if (event.key === 'Home') next = tabs[0];
+          if (event.key === 'End') next = tabs[tabs.length - 1];
+          if (next) { event.preventDefault(); next.focus(); activate(next); }
+          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activate(tab); }
+        });
+      });
+
+      const hashTarget = tabs.find((tab) => `#${tab.getAttribute('aria-controls')}` === location.hash);
+      activate(hashTarget || tabs[0], false);
+
+      function systemIsDark() { return window.matchMedia('(prefers-color-scheme: dark)').matches; }
+      function setTheme(theme) {
+        document.documentElement.dataset.theme = theme;
+        const dark = theme === 'dark';
+        themeButton.setAttribute('aria-pressed', String(dark));
+        themeButton.setAttribute('aria-label', `Switch to ${dark ? 'light' : 'dark'} theme`);
+      }
+      setTheme(systemIsDark() ? 'dark' : 'light');
+      themeButton.addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+    })();
+  </script>
+</body>
+</html>
