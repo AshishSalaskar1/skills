@@ -1,0 +1,5 @@
+interface:
+  display_name: "Teach"
+  short_description: "Generate an in-depth engineering HTML course"
+policy:
+  allow_implicit_invocation: false
